@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from math import inf
 from which_pyqt import PYQT_VER
 
 if PYQT_VER == 'PYQT5':
@@ -331,10 +332,17 @@ class TSPSolver:
                 if dest != source and\
                 source.costTo(dest) != float("inf"):
                     cityPairs.append((source, dest))
-
+                    
         cityGraph = self.buildGraph(cityPairs)
+                    
+        cityMatrix = []
+        for i in range(len(cities)):
+            cityMatrix.append([])
+            for j in range(len(cities)):
+                cityMatrix[i].append(cities[i].costTo(cities[j]))
+
         
-        self.christofides(cityGraph)
+        self.christofides(cityGraph, cityMatrix)
 
     # creates a graph of cities. graph[source][dest] = (distance from source to dest)
     def buildGraph(self, cityPairs):
@@ -347,30 +355,32 @@ class TSPSolver:
 
         return graph
 
-    def christofides(self, cityGraph):
+    def christofides(self, cityGraph, cityMatrix):
 
         # build minimum spanning tree in O(n^3) time and O(E) space. Returns a graph of all the paths.
         MinSpanTree = self.minimumSpanningTree(cityGraph)
         print("Minimum Spanning Tree")
         print(MinSpanTree)
 
-        # find odd vertices in O(n^2) time and O(n) space. Returns an array with all the indices of cities with odd degrees
+        # find odd vertices in O(n^2) time and O(n) space. Returns an array with all the indices of cities with odd degrees.
         oddVertices = self.findOddVertices(MinSpanTree, len(cityGraph))
-        print("Indices of odd-degree vertices")
-        print(oddVertices)
+        unsatisfiedVertices = self.findUnsatisfiedVertices(MinSpanTree, len(cityGraph))
+        print("Degrees of vertices")
+        print(unsatisfiedVertices)
 
         # find minimum perfect matching and add to MST
-        self.minimumMatching(MinSpanTree, cityGraph, oddVertices)
+        #There will always be an even number of cities with odd degree so this function works
+        self.findNeededEdges(MinSpanTree, cityMatrix, oddVertices)
 
         # find eulerian tour
-        eulerianTour = self.findEulerianTour(MinSpanTree)
+        eulerianTour = self.findEulerianTour(MinSpanTree, len(cityGraph))
 
         # find hamiltonian circuit
-        path = self.findHamiltonianCircuit(eulerianTour)
+        # path = self.findHamiltonianCircuit(eulerianTour)
 
-        bssf = TSPSolution(path)
+        # bssf = TSPSolution(path)
 
-        return bssf, path
+        # return bssf, path
 
     def minimumSpanningTree(self, cityGraph): #runs in O(n^3) time and O(E) space
         
@@ -436,11 +446,83 @@ class TSPSolver:
                 
         return oddDegreeCities
 
-    def minimumMatching(self, MinSpanTree, cityGraph, oddVertices):
+    def findUnsatisfiedVertices(self, MinSpanTree, cityCount):
+        
+        cityDegreeArray = [0] * cityCount
+        
+        for i in range(cityCount):
+            for j in range(cityCount):
+                if i in MinSpanTree and j in MinSpanTree[i]:
+                    cityDegreeArray[i] -= 1
+                    cityDegreeArray[j] += 1
+
+        return cityDegreeArray
+
+    def minimumMatching(self, MinSpanTree, cityMatrix, oddVertices):
+        
+        cityCount = len(cityMatrix)
+        
+        bestLen = np.inf
+        bestPath = []
+        
+        # for i in range(cityCount):
+        #     for j in range(cityCount):
+                
+        
         pass
 
-    def findEulerianTour(self, MinSpanTree):
-        pass
+    def findNeededEdges(self, MinSpanTree, cityGraph, unsatisfiedVerticies):
+        import random
+        random.shuffle(unsatisfiedVerticies)
 
+        negativeScoreVertices = []
+        positiveScoreVertices = []
+
+        cost = 0
+
+        for vertex, score in enumerate(unsatisfiedVerticies):
+            if score < 0:
+                negativeScoreVertices.append((vertex, score))
+            if score > 0:
+                positiveScoreVertices.append((vertex, score))
+
+        for i in range(len(negativeScoreVertices)):
+            for j in range(len(positiveScoreVertices)):
+                start = positiveScoreVertices[j]
+                end = negativeScoreVertices[i]
+                if cityGraph[start][end] != float("inf"):
+                    if start[0] not in MinSpanTree:
+                        MinSpanTree[start[0]] = {}
+                    MinSpanTree[start[0]][end[0]] = cityGraph[start[0]][end[0]]
+                    cost += cityGraph[start[0]][end[0]]
+                    start[1] -= 1
+                    end[1] += 1
+                    if start[1] == 0:
+                        positiveScoreVertices.remove(start)
+                    if end[1] == 0:
+                        negativeScoreVertices.remove(end)
+
+        return cost
+
+    def findEulerianTour(self, MinSpanTree, cityCount):
+        
+        initVisited = [False] * cityCount
+        
+        return self.findEulerianTourRecursive(MinSpanTree, initVisited, [0])
+    
+    def findEulerianTourRecursive(self, MinSpanTree, hasVisited, curPath):
+        
+        hasVisitedCopy = hasVisited.copy()
+        hasVisitedCopy[curPath[-1]] = True
+        
+        if not False in hasVisitedCopy: #O(n) to check a n-length array of booleans
+            print(curPath)
+            return curPath
+        
+        for pathOut in MinSpanTree[curPath[-1]]:
+            curPathCopy = curPath.copy()
+            curPathCopy.append(pathOut)
+            results = self.findEulerianTourRecursive(MinSpanTree, hasVisitedCopy, curPathCopy)
+        
     def findHamiltonianCircuit(self, eulerianTour):
         pass
