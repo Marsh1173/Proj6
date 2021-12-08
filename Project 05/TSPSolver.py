@@ -311,4 +311,72 @@ class TSPSolver:
     '''
 
     def fancy(self, time_allowance=60.0):
+        start_time = time.time()
+
+        numSolutions = 0
+        results = {}
+
+        initialResult = self.greedy()
+        greedyBSSF = initialResult['soln']
+        initial_route = greedyBSSF.route
+
+        BSSF = initialResult['cost']
+        cities = self._scenario.getCities()
+
+        while (True):
+            cityPairs = []
+            for source in cities:
+                for dest in cities:
+                    if dest != source and\
+                    source.costTo(dest) != float("inf"):
+                        cityPairs.append((source, dest))
+
+            cityGraph = self.buildGraph(cityPairs)
+            self.christofides(cityGraph)
+
+    # creates a graph of cities. graph[source][dest] = (distance from source to dest)
+    def buildGraph(self, cityPairs):
+        graph = {}
+
+        for source, dest in cityPairs:
+            if source._index not in graph:
+                graph[source._index] = {}
+            graph[source._index][dest._index] = source.costTo(dest)
+
+        return graph
+
+    def christofides(self, cityGraph, invalid_paths):
+
+        # build minimum spanning tree
+        MinSpanTree = self.minimumSpanningTree(cityGraph)
+
+        # find odd vertices
+        oddVertices = self.findOddVertices(MinSpanTree)
+
+        # find minimum perfect matching and add to MST
+        self.minimumMatching(MinSpanTree, cityGraph, oddVertices)
+
+        # find eulerian tour
+        eulerianTour = self.findEulerianTour(MinSpanTree)
+
+        # find hamiltonian circuit
+        path = self.findHamiltonianCircuit(eulerianTour)
+
+        bssf = TSPSolution(path)
+
+        return bssf, path
+
+    def minimumSpanningTree(self, cityGraph):
+        pass
+
+    def findOddVertices(self, MinSpanTree):
+        pass
+
+    def minimumMatching(self, MinSpanTree, cityGraph, oddVertices):
+        pass
+
+    def findEulerianTour(self, MinSpanTree):
+        pass
+
+    def findHamiltonianCircuit(self, eulerianTour):
         pass
