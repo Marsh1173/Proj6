@@ -316,6 +316,7 @@ class TSPSolver:
         numSolutions = 0
         results = {}
 
+        #Initializing basic data
         initialResult = self.greedy()
         greedyBSSF = initialResult['soln']
         initial_route = greedyBSSF.route
@@ -323,16 +324,17 @@ class TSPSolver:
         BSSF = initialResult['cost']
         cities = self._scenario.getCities()
 
-        while (True):
-            cityPairs = []
-            for source in cities:
-                for dest in cities:
-                    if dest != source and\
-                    source.costTo(dest) != float("inf"):
-                        cityPairs.append((source, dest))
+        # while (True):
+        cityPairs = []
+        for source in cities:
+            for dest in cities:
+                if dest != source and\
+                source.costTo(dest) != float("inf"):
+                    cityPairs.append((source, dest))
 
-            cityGraph = self.buildGraph(cityPairs)
-            self.christofides(cityGraph)
+        cityGraph = self.buildGraph(cityPairs)
+        
+        self.christofides(cityGraph)
 
     # creates a graph of cities. graph[source][dest] = (distance from source to dest)
     def buildGraph(self, cityPairs):
@@ -345,13 +347,17 @@ class TSPSolver:
 
         return graph
 
-    def christofides(self, cityGraph, invalid_paths):
+    def christofides(self, cityGraph):
 
-        # build minimum spanning tree
+        # build minimum spanning tree in O(n^3) time and O(E) space. Returns a graph of all the paths.
         MinSpanTree = self.minimumSpanningTree(cityGraph)
+        print("Minimum Spanning Tree")
+        print(MinSpanTree)
 
-        # find odd vertices
-        oddVertices = self.findOddVertices(MinSpanTree)
+        # find odd vertices in O(n^2) time and O(n) space. Returns an array with all the indices of cities with odd degrees
+        oddVertices = self.findOddVertices(MinSpanTree, len(cityGraph))
+        print("Indices of odd-degree vertices")
+        print(oddVertices)
 
         # find minimum perfect matching and add to MST
         self.minimumMatching(MinSpanTree, cityGraph, oddVertices)
@@ -366,11 +372,69 @@ class TSPSolver:
 
         return bssf, path
 
-    def minimumSpanningTree(self, cityGraph):
-        pass
+    def minimumSpanningTree(self, cityGraph): #runs in O(n^3) time and O(E) space
+        
+        cityCount = len(cityGraph)
+        
+        #Init visited array, including the first city was visited.
+        cityWasVisited = [False] * cityCount
+        cityWasVisited[0] = True
+        
+        #Init minimum spanning tree graph.
+        MSTgraph = {}
+        
+        #Quick counter to make sure the loop does not go forever.
+        pathCount = 0
+        
+        while pathCount < cityCount - 1: # O(n) at most
+            
+            #Breaks if all the cities have been visited.
+            if not False in cityWasVisited:
+                break
+            
+            shortestValidPath = np.inf
+            startCity = -1
+            endCity = -1
+            
+            #Finds the shortest path from a city that was already visited in O(n^2) time.
+            for i in range(cityCount):
+                for j in range(cityCount):
+                    if j != i and cityWasVisited[i] and not cityWasVisited[j]:
+                        if i in cityGraph and j in cityGraph[i] and cityGraph[i][j] < shortestValidPath:
+                            startCity = i
+                            endCity = j
+                            shortestValidPath = cityGraph[i][j]
+            
+            #If the path exists, add it to the MST.
+            if(startCity != -1 and endCity != -1):
+                pathCount += 1
+                cityWasVisited[endCity] = True
+                
+                if startCity not in MSTgraph:
+                    MSTgraph[startCity] = {}
+                MSTgraph[startCity][endCity] = cityGraph[startCity][endCity]
+        
+        return MSTgraph
 
-    def findOddVertices(self, MinSpanTree):
-        pass
+    def findOddVertices(self, MinSpanTree, cityCount): #runs in O(n^2) time and O(n) space
+        
+        #init array to keep track of degrees
+        oddDegreeCityDegree = [False] * cityCount
+        
+        #O(n^2) for loops to find degrees. For every edge, the attached cities increment their degree
+        for i in range(cityCount):
+            for j in range(cityCount):
+                if i in MinSpanTree and j in MinSpanTree[i]:
+                    oddDegreeCityDegree[j] = not oddDegreeCityDegree[j]
+                    oddDegreeCityDegree[i] = not oddDegreeCityDegree[i]
+        
+        oddDegreeCities = []
+        #O(n) for loop to create an array with all the odd degree city indices
+        for i in range(cityCount):
+            if oddDegreeCityDegree[i] :
+                oddDegreeCities.append(i)
+                
+        return oddDegreeCities
 
     def minimumMatching(self, MinSpanTree, cityGraph, oddVertices):
         pass
