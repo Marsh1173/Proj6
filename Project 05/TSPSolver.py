@@ -360,7 +360,13 @@ class TSPSolver:
         print(oddVertices)
 
         # find minimum perfect matching and add to MST
-        self.minimumMatching(MinSpanTree, cityGraph, oddVertices)
+        cost = float("inf")
+        for i in range(10):
+            tempCost = self.findNeededEdges(MinSpanTree, cityGraph, copy)
+            if (tempCost < cost):
+                cost = tempCost
+        print("Minimum Spanning Tree")
+        print(MinSpanTree)
 
         # find eulerian tour
         eulerianTour = self.findEulerianTour(MinSpanTree)
@@ -436,8 +442,38 @@ class TSPSolver:
                 
         return oddDegreeCities
 
-    def minimumMatching(self, MinSpanTree, cityGraph, oddVertices):
-        pass
+    def findNeededEdges(self, MinSpanTree, cityGraph, unsatisfiedVerticies):
+        import random
+        random.shuffle(unsatisfiedVerticies)
+
+        negativeScoreVertices = []
+        positiveScoreVertices = []
+
+        cost = 0
+
+        for vertex, score in enumerate(unsatisfiedVerticies):
+            if score < 0:
+                negativeScoreVertices.append((vertex, score))
+            if score > 0:
+                positiveScoreVertices.append((vertex, score))
+
+        for i in range(len(negativeScoreVertices)):
+            for j in range(len(positiveScoreVertices)):
+                start = positiveScoreVertices[j]
+                end = negativeScoreVertices[i]
+                if cityGraph[start][end] != float("inf"):
+                    if start[0] not in MinSpanTree:
+                        MinSpanTree[start[0]] = {}
+                    MinSpanTree[start[0]][end[0]] = cityGraph[start[0]][end[0]]
+                    cost += cityGraph[start[0]][end[0]]
+                    start[1] -= 1
+                    end[1] += 1
+                    if start[1] == 0:
+                        positiveScoreVertices.remove(start)
+                    if end[1] == 0:
+                        negativeScoreVertices.remove(end)
+
+        return cost
 
     def findEulerianTour(self, MinSpanTree):
         pass
