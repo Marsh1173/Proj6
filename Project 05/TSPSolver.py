@@ -370,7 +370,21 @@ class TSPSolver:
 
         # find minimum perfect matching and add to MST
         #There will always be an even number of cities with odd degree so this function works
-        self.findNeededEdges(MinSpanTree, cityMatrix, oddVertices)
+        cost = float("inf")
+        pathsToAdd = {}
+        for i in range(10):
+            tempCost, tempPathsToAdd = self.findNeededEdges(MinSpanTree, cityMatrix, unsatisfiedVertices.copy())
+            if (tempCost < cost):
+                cost = tempCost
+                pathsToAdd = tempPathsToAdd
+        print("Paths to add")
+        print(pathsToAdd)
+        
+        for x in pathsToAdd:
+            for y in pathsToAdd[x]:
+                if x not in MinSpanTree:
+                    MinSpanTree[x] = {}
+                MinSpanTree[x][y] = cityMatrix[x][y]
 
         # find eulerian tour
         eulerianTour = self.findEulerianTour(MinSpanTree, len(cityGraph))
@@ -455,40 +469,54 @@ class TSPSolver:
                 if i in MinSpanTree and j in MinSpanTree[i]:
                     cityDegreeArray[i] -= 1
                     cityDegreeArray[j] += 1
-    def findNeededEdges(self, MinSpanTree, cityGraph, unsatisfiedVerticies):
-        import random
-        random.shuffle(unsatisfiedVerticies)
+
+        return cityDegreeArray
+                    
+    def findNeededEdges(self, MinSpanTree, cityMatrix, unsatisfiedVerticies):
 
         negativeScoreVertices = []
         positiveScoreVertices = []
 
+        pathsToAdd = {}
         cost = 0
 
-        for vertex, score in enumerate(unsatisfiedVerticies):
-            if score < 0:
-                negativeScoreVertices.append((vertex, score))
-            if score > 0:
-                positiveScoreVertices.append((vertex, score))
-
-        for i in range(len(negativeScoreVertices)):
-            for j in range(len(positiveScoreVertices)):
+        for i in range(len(unsatisfiedVerticies)):
+            if unsatisfiedVerticies[i] < 0:
+                negativeScoreVertices.append(i)
+            if unsatisfiedVerticies[i] > 0:
+                positiveScoreVertices.append(i)
+                
+        import random
+        random.shuffle(negativeScoreVertices)
+        random.shuffle(positiveScoreVertices)
+                
+        i = 0
+        while i < len(negativeScoreVertices):
+            j = 0
+            while j < len(positiveScoreVertices):
+                
                 start = positiveScoreVertices[j]
                 end = negativeScoreVertices[i]
-                if cityGraph[start][end] != float("inf"):
-                    if start[0] not in MinSpanTree:
-                        MinSpanTree[start[0]] = {}
-                    MinSpanTree[start[0]][end[0]] = cityGraph[start[0]][end[0]]
-                    cost += cityGraph[start[0]][end[0]]
-                    start[1] -= 1
-                    end[1] += 1
-                    if start[1] == 0:
+                
+                if cityMatrix[start][end] != float("inf"):
+                    if start not in pathsToAdd:
+                        pathsToAdd[start] = {}
+                    pathsToAdd[start][end] = cityMatrix[start][end]
+                    cost += cityMatrix[start][end]
+                    unsatisfiedVerticies[start] -= 1
+                    unsatisfiedVerticies[end] += 1
+                    if unsatisfiedVerticies[start] == 0:
                         positiveScoreVertices.remove(start)
-                    if end[1] == 0:
+                        j -= 1
+                    if unsatisfiedVerticies[end] == 0:
                         negativeScoreVertices.remove(end)
+                        i -= 1
+                        break
+                        
+                j += 1
+            i += 1
 
-        return cost
-
-        return cityDegreeArray
+        return cost, pathsToAdd
 
     def minimumMatching(self, MinSpanTree, cityMatrix, oddVertices):
         
@@ -503,58 +531,72 @@ class TSPSolver:
         
         pass
 
-    def findNeededEdges(self, MinSpanTree, cityGraph, unsatisfiedVerticies):
-        import random
-        random.shuffle(unsatisfiedVerticies)
-
-        negativeScoreVertices = []
-        positiveScoreVertices = []
-
-        cost = 0
-
-        for vertex, score in enumerate(unsatisfiedVerticies):
-            if score < 0:
-                negativeScoreVertices.append((vertex, score))
-            if score > 0:
-                positiveScoreVertices.append((vertex, score))
-
-        for i in range(len(negativeScoreVertices)):
-            for j in range(len(positiveScoreVertices)):
-                start = positiveScoreVertices[j]
-                end = negativeScoreVertices[i]
-                if cityGraph[start][end] != float("inf"):
-                    if start[0] not in MinSpanTree:
-                        MinSpanTree[start[0]] = {}
-                    MinSpanTree[start[0]][end[0]] = cityGraph[start[0]][end[0]]
-                    cost += cityGraph[start[0]][end[0]]
-                    start[1] -= 1
-                    end[1] += 1
-                    if start[1] == 0:
-                        positiveScoreVertices.remove(start)
-                    if end[1] == 0:
-                        negativeScoreVertices.remove(end)
-
-        return cost
-
-    def findEulerianTour(self, MinSpanTree, cityCount):
+    def findEulerianTourBad(self, MinSpanTree, cityCount):
         
         initVisited = [False] * cityCount
         
         return self.findEulerianTourRecursive(MinSpanTree, initVisited, [0])
     
-    def findEulerianTourRecursive(self, MinSpanTree, hasVisited, curPath):
+    def findEulerianTourRecursiveBad(self, MinSpanTree, hasVisited, curPath):
         
         hasVisitedCopy = hasVisited.copy()
         hasVisitedCopy[curPath[-1]] = True
         
+        print(hasVisitedCopy)
+        
         if not False in hasVisitedCopy: #O(n) to check a n-length array of booleans
             print(curPath)
             return curPath
+            
+        print(len(MinSpanTree[curPath[-1]]))
         
         for pathOut in MinSpanTree[curPath[-1]]:
             curPathCopy = curPath.copy()
             curPathCopy.append(pathOut)
             results = self.findEulerianTourRecursive(MinSpanTree, hasVisitedCopy, curPathCopy)
+        
+    def findEulerianTour(self, MinSpanTree, cityCount):
+        edge_count = {}
+        for i in range(cityCount):
+            edge_count[i] = len(MinSpanTree[i])
+            
+        curr_path = []
+        circuit = []
+        
+        curr_path.append(0)
+        curr_v = 0
+        
+        while len(curr_path):
+  
+            # If there's remaining edge
+            if edge_count[curr_v]:
+
+                # Push the vertex
+                curr_path.append(curr_v)
+
+                # Find the next vertex using an edge
+                next_v = MinSpanTree[curr_v][MinSpanTree[curr_v].keys()[-1]]
+
+                # and remove that edge
+                edge_count[curr_v] -= 1
+                MinSpanTree[curr_v][MinSpanTree[curr_v].keys()].pop()
+
+                # Move to next vertex
+                curr_v = next_v
+
+            # back-track to find remaining circuit
+            else:
+                circuit.append(curr_v)
+
+                # Back-tracking
+                curr_v = curr_path[-1]
+                curr_path.pop()
+
+            # we've got the circuit, now print it in reverse
+            for i in range(len(circuit) - 1, -1, -1):
+                print(circuit[i], end = "")
+            if i:
+                print(" -> ", end = "")
         
     def findHamiltonianCircuit(self, eulerianTour):
         pass
