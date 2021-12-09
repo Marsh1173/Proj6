@@ -343,19 +343,18 @@ class TSPSolver:
                 cityMatrix[i].append(cities[i].costTo(cities[j]))
 
         
-        path, cost = self.christofides(cityGraph, cityMatrix)
+        soln, cost = self.christofides(cityGraph, cityMatrix)
 
         results['cost'] = cost
         results['time'] = 0
         results['count'] = 1
-        results['soln'] = path
+        results['soln'] = soln
         results['max'] = 0
         results['total'] = 0
         results['pruned'] = 0
 
 
         return results
-
 
     # creates a graph of cities. graph[source][dest] = (distance from source to dest)
     def buildGraph(self, cityPairs):
@@ -369,6 +368,8 @@ class TSPSolver:
         return graph
 
     def christofides(self, cityGraph, cityMatrix):
+        
+        cities = self._scenario.getCities()
 
         # build minimum spanning tree in O(n^3) time and O(E) space. Returns a graph of all the paths.
         MinSpanTree = self.minimumSpanningTree(cityGraph)
@@ -398,29 +399,34 @@ class TSPSolver:
                 if x not in MinSpanTree:
                     MinSpanTree[x] = {}
                 MinSpanTree[x][y] = cityMatrix[x][y]
+                
         cost = np.inf
-        path = []
+        soln = []
+        
         for i in range(20):
             # find eulerian tour
             eulerianTour = self.findEulerianTour(MinSpanTree, len(cityGraph), 0)
 
             # find hamiltonian circuit
             curPath = self.findHamiltonianCircuit(eulerianTour,  len(cityMatrix), cityMatrix)
-
-            cityPath = (map(lambda city: self._scenario.getCities()[city], curPath))
+            cityPath = []
+            for i in curPath:
+                cityPath.append(cities[i])
 
             if (len(curPath) == 0):
                 continue
-            curCost = TSPSolution(cityPath).cost
+            
+            tempSoln = TSPSolution(cityPath)
+            curCost = tempSoln.cost
             if (curCost <= cost):
                 cost = curCost
-                path = cityPath
+                soln = tempSoln
 
 
 
         # bssf = TSPSolution(path)
 
-        return path, cost
+        return soln, cost
 
     def minimumSpanningTree(self, cityGraph): #runs in O(n^3) time and O(E) space
         
