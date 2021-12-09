@@ -15,6 +15,7 @@ import numpy as np
 from TSPClasses import *
 import heapq
 import copy
+import array
 import itertools
 
 
@@ -342,7 +343,19 @@ class TSPSolver:
                 cityMatrix[i].append(cities[i].costTo(cities[j]))
 
         
-        self.christofides(cityGraph, cityMatrix)
+        path, cost = self.christofides(cityGraph, cityMatrix)
+
+        results['cost'] = cost
+        results['time'] = 0
+        results['count'] = 1
+        results['soln'] = path
+        results['max'] = 0
+        results['total'] = 0
+        results['pruned'] = 0
+
+
+        return results
+
 
     # creates a graph of cities. graph[source][dest] = (distance from source to dest)
     def buildGraph(self, cityPairs):
@@ -372,7 +385,7 @@ class TSPSolver:
         #There will always be an even number of cities with odd degree so this function works
         cost = float("inf")
         pathsToAdd = {}
-        for i in range(10):
+        for i in range(100):
             tempCost, tempPathsToAdd = self.findNeededEdges(MinSpanTree, cityMatrix, unsatisfiedVertices.copy())
             if (tempCost < cost):
                 cost = tempCost
@@ -385,16 +398,29 @@ class TSPSolver:
                 if x not in MinSpanTree:
                     MinSpanTree[x] = {}
                 MinSpanTree[x][y] = cityMatrix[x][y]
+        cost = np.inf
+        path = []
+        for i in range(20):
+            # find eulerian tour
+            eulerianTour = self.findEulerianTour(MinSpanTree, len(cityGraph), 0)
 
-        # find eulerian tour
-        eulerianTour = self.findEulerianTour(MinSpanTree, len(cityGraph))
+            # find hamiltonian circuit
+            curPath = self.findHamiltonianCircuit(eulerianTour,  len(cityMatrix), cityMatrix)
 
-        # find hamiltonian circuit
-        # path = self.findHamiltonianCircuit(eulerianTour)
+            cityPath = (map(lambda city: self._scenario.getCities()[city], curPath))
+
+            if (len(curPath) == 0):
+                continue
+            curCost = TSPSolution(cityPath).cost
+            if (curCost <= cost):
+                cost = curCost
+                path = cityPath
+
+
 
         # bssf = TSPSolution(path)
 
-        # return bssf, path
+        return path, cost
 
     def minimumSpanningTree(self, cityGraph): #runs in O(n^3) time and O(E) space
         
@@ -516,6 +542,9 @@ class TSPSolver:
                 j += 1
             i += 1
 
+        if (len(positiveScoreVertices) != 0 or len(negativeScoreVertices) != 0):
+            return np.inf, pathsToAdd
+
         return cost, pathsToAdd
 
     def minimumMatching(self, MinSpanTree, cityMatrix, oddVertices):
@@ -530,59 +559,38 @@ class TSPSolver:
                 
         
         pass
-
-    def findEulerianTourBad(self, MinSpanTree, cityCount):
         
-        initVisited = [False] * cityCount
-        
-        return self.findEulerianTourRecursive(MinSpanTree, initVisited, [0])
-    
-    def findEulerianTourRecursiveBad(self, MinSpanTree, hasVisited, curPath):
-        
-        hasVisitedCopy = hasVisited.copy()
-        hasVisitedCopy[curPath[-1]] = True
-        
-        print(hasVisitedCopy)
-        
-        if not False in hasVisitedCopy: #O(n) to check a n-length array of booleans
-            print(curPath)
-            return curPath
-            
-        print(len(MinSpanTree[curPath[-1]]))
-        
-        for pathOut in MinSpanTree[curPath[-1]]:
-            curPathCopy = curPath.copy()
-            curPathCopy.append(pathOut)
-            results = self.findEulerianTourRecursive(MinSpanTree, hasVisitedCopy, curPathCopy)
-        
-    def findEulerianTour(self, MinSpanTree, cityCount):
-        edge_count = {}
-        for i in range(cityCount):
-            edge_count[i] = len(MinSpanTree[i])
+    def findEulerianTour(self, MinSpanTree, cityCount, startNode):
+        edge_count = dict()
+        for v in MinSpanTree:
+            edge_count[v] = len(MinSpanTree[v])
             
         curr_path = []
         circuit = []
         
-        curr_path.append(0)
-        curr_v = 0
+        curr_path.append(startNode)
+        curr_v = startNode
         
         while len(curr_path):
   
             # If there's remaining edge
-            if edge_count[curr_v]:
+            if curr_v in edge_count and edge_count[curr_v]:
 
                 # Push the vertex
                 curr_path.append(curr_v)
 
+                rand_end_city = random.choice(list(MinSpanTree[curr_v].keys()))
+
+                print("Edge: ", rand_end_city)
                 # Find the next vertex using an edge
-                next_v = MinSpanTree[curr_v][MinSpanTree[curr_v].keys()[-1]]
+                next_v = rand_end_city
 
                 # and remove that edge
                 edge_count[curr_v] -= 1
-                MinSpanTree[curr_v][MinSpanTree[curr_v].keys()].pop()
+                del MinSpanTree[curr_v][rand_end_city]
 
                 # Move to next vertex
-                curr_v = next_v
+                curr_v = rand_end_city
 
             # back-track to find remaining circuit
             else:
@@ -592,11 +600,33 @@ class TSPSolver:
                 curr_v = curr_path[-1]
                 curr_path.pop()
 
-            # we've got the circuit, now print it in reverse
-            for i in range(len(circuit) - 1, -1, -1):
-                print(circuit[i], end = "")
-            if i:
-                print(" -> ", end = "")
-        
-    def findHamiltonianCircuit(self, eulerianTour):
-        pass
+        circuit.reverse()
+
+        return circuit
+
+    def findHamiltonianCircuit(self, eulerianTour, cityCount, cityMatrix):
+
+        hasBeenVisited = [False] * cityCount
+        path = []
+
+        i = 0
+        while i < len(eulerianTour):
+            if (i == len(eulerianTour) - 1):
+                pass
+            elif (hasBeenVisited[eulerianTour[i]]):
+
+                prevNode = eulerianTour[i - 1]
+                nextNode = eulerianTour[i + 1]
+
+                if (cityMatrix[prevNode][nextNode] != np.inf):
+                    i += 1
+                    hasBeenVisited[nextNode] = True
+                    path.append(nextNode)
+                else:
+                    return []
+            else:
+                hasBeenVisited[eulerianTour[i]] = True
+                path.append(eulerianTour[i])
+            i += 1
+        return path
+
